@@ -18,7 +18,7 @@ fn main() {
     let option_spec = load_yaml!("cli.yml");
     let options = App::from_yaml(option_spec).get_matches();
 
-    let repo_path:PathBuf = options.value_of("repository").unwrap_or(".").into();
+    let repo_path: PathBuf = options.value_of("repository").unwrap_or(".").into();
 
     let top: usize = options.value_of("top").unwrap_or("5").parse().unwrap();
 
@@ -28,16 +28,22 @@ fn main() {
         .unwrap_or_else(|| {
             format!(
                 "{}.constat.png",
-                    repo_path
+                repo_path
                     .file_name()
-                    .unwrap_or("unknown-repo".as_ref())
+                    .unwrap_or_else(||"unknown-repo".as_ref())
                     .to_string_lossy()
                     .to_owned()
             )
-        }).into();
+        })
+        .into();
 
-    let resolution:(u32, u32) = { 
-        let mut parser = options.value_of("resolution").unwrap_or("1024x768").split(|x| x == 'x').take(2).map(|s| s.parse().unwrap());
+    let resolution: (u32, u32) = {
+        let mut parser = options
+            .value_of("resolution")
+            .unwrap_or("1024x768")
+            .split(|x| x == 'x')
+            .take(2)
+            .map(|s| s.parse().unwrap());
         (parser.next().unwrap(), parser.next().unwrap())
     };
 
@@ -45,7 +51,7 @@ fn main() {
 
     let mut author_info: HashMap<_, Vec<(_, usize)>> = HashMap::new();
 
-    let mut pb = None; 
+    let mut pb = None;
 
     ps.run(|commit, stat, authors, total| {
         if pb.is_none() {
@@ -56,7 +62,7 @@ fn main() {
         for (i, s) in (0..).zip(stat.iter()) {
             let value = author_info
                 .entry(authors.get_name_by_id(i).unwrap_or("N/A").to_string())
-                .or_insert(vec![]);
+                .or_insert_with(|| vec![]);
 
             let timestamp = Utc.ymd(1970, 1, 1) + Duration::seconds(commit.time().seconds());
             if let Some(what) = value.last_mut() {
@@ -118,20 +124,11 @@ fn main() {
     };
 
     if out.extension().map_or(true, |ext| ext == "svg") {
-        let renderer = Renderer::new(
-            repo_path,
-            author_info,
-            SVGBackend::new(&out, resolution),
-        );
+        let renderer = Renderer::new(repo_path, author_info, SVGBackend::new(&out, resolution));
 
         renderer.draw();
     } else {
-
-        let renderer = Renderer::new(
-            repo_path,
-            author_info,
-            BitMapBackend::new(&out, resolution),
-        );
+        let renderer = Renderer::new(repo_path, author_info, BitMapBackend::new(&out, resolution));
 
         renderer.draw();
     }

@@ -36,6 +36,6 @@ impl GitRepo {
         *self
             .0
             .entry(new_file.unwrap().to_path_buf())
-            .or_insert(RepoFile::empty()) = after_patched;
+            .or_insert_with(RepoFile::empty) = after_patched;
     }
 }

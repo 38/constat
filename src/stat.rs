@@ -105,7 +105,12 @@ impl PendingStat {
                 );
             }
 
-            commit_scanned(&next, author_stat.stats(), author_index.borrow(), commits.len());
+            commit_scanned(
+                &next,
+                author_stat.stats(),
+                author_index.borrow(),
+                commits.len(),
+            );
         }
 
         Ok(())

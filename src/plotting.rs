@@ -5,8 +5,10 @@ use plotters::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
 
+pub type AuthorStat = (String, Vec<(Date<Utc>, usize)>);
+
 pub struct Renderer<D: DrawingBackend> {
-    data: Vec<(String, Vec<(Date<Utc>, usize)>)>,
+    data: Vec<AuthorStat>,
     repo_name: String,
     back: D,
 }
@@ -14,7 +16,7 @@ pub struct Renderer<D: DrawingBackend> {
 impl<D: DrawingBackend> Renderer<D> {
     pub fn new<P: AsRef<Path>>(
         path: P,
-        data: Vec<(String, Vec<(Date<Utc>, usize)>)>,
+        data: Vec<AuthorStat>,
         back: D,
     ) -> Self {
         Self {
@@ -31,7 +33,7 @@ impl<D: DrawingBackend> Renderer<D> {
         let max_time = self
             .data
             .iter()
-            .map(|(_, stats)| stats.last().unwrap().0.clone())
+            .map(|(_, stats)| stats.last().unwrap().0)
             .max()
             .unwrap();
         let max_loc = self
@@ -70,7 +72,7 @@ impl<D: DrawingBackend> Renderer<D> {
             let mut points = vec![];
 
             for (time, count) in stat {
-                *accumulate.entry(time.clone()).or_insert(0) += count;
+                *accumulate.entry(time).or_insert(0) += count;
                 points.push((time, accumulate[&time]));
             }
 

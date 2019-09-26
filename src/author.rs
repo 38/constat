@@ -19,7 +19,7 @@ impl AuthorIndex {
             self.id2name.push(name.to_string());
             self.name2id.insert(name.to_string(), idx as u16);
         }
-        return self.name2id[name] as u16;
+        self.name2id[name] as u16
     }
 
     pub fn get_name_by_id(&self, idx: u16) -> Option<&str> {
