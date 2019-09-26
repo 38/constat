@@ -3,6 +3,10 @@ name = "constat"
 version = "0.1.0"
 authors = ["Hao Hou <haohou302@gmail.com>"]
 edition = "2018"
+description = "A toy program that counts and visualize the line of code owned by each author over time"
+license = "MIT"
+repository = "https://github.com/38/constat"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
