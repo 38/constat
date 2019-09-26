@@ -18,7 +18,8 @@ fn main() {
     let option_spec = load_yaml!("cli.yml");
     let options = App::from_yaml(option_spec).get_matches();
 
-    let repo_path: PathBuf = options.value_of("repository").unwrap_or(".").into();
+    let repo_path: PathBuf =
+        std::fs::canonicalize(options.value_of("repository").unwrap_or(".")).unwrap();
 
     let top: usize = options.value_of("top").unwrap_or("5").parse().unwrap();
 
@@ -30,7 +31,7 @@ fn main() {
                 "{}.constat.png",
                 repo_path
                     .file_name()
-                    .unwrap_or_else(||"unknown-repo".as_ref())
+                    .unwrap_or_else(|| "unknown-repo".as_ref())
                     .to_string_lossy()
                     .to_owned()
             )

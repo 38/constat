@@ -14,11 +14,7 @@ pub struct Renderer<D: DrawingBackend> {
 }
 
 impl<D: DrawingBackend> Renderer<D> {
-    pub fn new<P: AsRef<Path>>(
-        path: P,
-        data: Vec<AuthorStat>,
-        back: D,
-    ) -> Self {
+    pub fn new<P: AsRef<Path>>(path: P, data: Vec<AuthorStat>, back: D) -> Self {
         Self {
             repo_name: path.as_ref().file_name().map_or("N/A".to_string(), |what| {
                 what.to_string_lossy().into_owned()
