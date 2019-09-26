@@ -9,4 +9,6 @@ edition = "2018"
 [dependencies]
 git2 = "0.10.1"
 chrono = "0.4.9"
-plotters = "0.2.6"
+plotters = {version = "0.2.6", default_features = false, features = ["svg", "datetime", "bitmap"]}
+clap = {version = "2.33.0", features = ["yaml"]}
+indicatif = "0.12.0"

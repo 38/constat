@@ -1,0 +1,23 @@
+name: constat - Generate Statistics of Constributor in a Git Repository
+version: 0.0.1
+author: Hao Hou <haohou302@gmail.com>
+args:
+    - repository:
+        value_name: REPO-PATH
+        help: The path to the repository
+        index: 1
+    - top:
+        short: 't' 
+        help: Showing the top N contributors on the chart
+        long: 'top'
+        value_name: 'TOP'
+    - output:
+        short: 'o'
+        help: The path to the output file
+        long: 'output'
+        value_name: 'OUT-FILE'
+    - resolution:
+        short: 'r'
+        help: The resolution of the result image
+        long: 'resolution'
+        value_name: '<WIDTH>x<HEIGHT>'
