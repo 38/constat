@@ -44,6 +44,8 @@ fn get_repo_path(parsed: &ArgMatches) -> (PathBuf, Option<TempDir>) {
 
     path.push(name);
 
+    eprintln!("Cloning remote repo into temp dir {:?}", path);
+
     git2::Repository::clone(url, &path).unwrap();
 
     (path, Some(temp))
