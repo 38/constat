@@ -16,3 +16,5 @@ chrono = "0.4.9"
 plotters = {version = "0.2.6", default_features = false, features = ["svg", "datetime", "bitmap"]}
 clap = {version = "2.33.0", features = ["yaml"]}
 indicatif = "0.12.0"
+glob = "0.3.0"
+tempfile = "3.1.0"
