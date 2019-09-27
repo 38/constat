@@ -60,17 +60,56 @@ impl<D: DrawingBackend> Renderer<D> {
             .draw()
             .unwrap();
 
-        let mut accumulate = HashMap::new();
+        let (time_table, time_values) = {
+            let mut time_values: Vec<_> = self
+                .data
+                .iter()
+                .map(|(_, stat)| stat.iter().map(|(time, _)| time.clone()))
+                .flatten()
+                .collect();
+            time_values.sort();
+            let mut j = 0;
+            for i in 0..time_values.len() {
+                if i == 0 || time_values[i - 1] != time_values[i] {
+                    time_values[j] = time_values[i];
+                    j += 1;
+                }
+            }
+            time_values.truncate(j);
+            (
+                time_values
+                    .iter()
+                    .zip(0..)
+                    .map(|(time, idx)| (time.clone(), idx))
+                    .collect::<HashMap<_, _>>(),
+                time_values,
+            )
+        };
+
+        let mut accumulate = vec![0; time_values.len()];
 
         let mut last_points = vec![(min_time, 0), (max_time, 0)];
 
         for (i, (name, stat)) in (0..).zip(self.data.into_iter()) {
             let mut points = vec![];
 
+            let mut last_idx = stat.first().map_or(0, |(time, _)| time_table[time]);
+
             for (time, count) in stat {
+                let this_idx = time_table[&time];
+
+                for idx in last_idx..=this_idx {
+                    accumulate[idx] += count;
+                    points.push((time, accumulate[idx]));
+                }
+
+                last_idx = this_idx + 1;
+            }
+
+            /*for (time, count) in stat {
                 *accumulate.entry(time).or_insert(0) += count;
                 points.push((time, accumulate[&time]));
-            }
+            }*/
 
             let mut vert = points.clone();
 

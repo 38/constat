@@ -85,10 +85,16 @@ fn main() {
         }
 
         if !others.is_empty() && !options.top_only {
-            buf.push(("others".to_string(), others));
+            buf.push(("Others".to_string(), others));
         }
 
-        buf.sort_by_key(|(_, stats)| stats.first().unwrap().0);
+        buf.sort_by_key(|(name, stats)| {
+            if name == "Others" {
+                Utc.ymd(1970, 1, 1)
+            } else {
+                stats.first().unwrap().0
+            }
+        });
 
         buf
     };
