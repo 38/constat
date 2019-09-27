@@ -84,7 +84,7 @@ fn main() {
             buf.push((name.to_string(), author_info.remove(&name).unwrap()));
         }
 
-        if !others.is_empty() {
+        if !others.is_empty() && !options.top_only {
             buf.push(("others".to_string(), others));
         }
 

@@ -9,6 +9,7 @@ pub struct ConstatOptions {
     pub out_path: PathBuf,
     pub resolution: (u32, u32),
     pub patterns: Vec<Pattern>,
+    pub top_only: bool,
     _temp_file_handle: Option<TempDir>,
 }
 
@@ -28,6 +29,7 @@ impl ConstatOptions {
             out_path,
             resolution: get_resolution(&options),
             patterns,
+            top_only: options.is_present("top-only"),
             _temp_file_handle: handle,
         }
     }

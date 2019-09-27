@@ -28,3 +28,7 @@ args:
         multiple: true
         index: 2
         required: false
+    - top-only:
+        short: 'T'
+        long: 'top-only'
+        help: Make constat do not visualize the contribution made by people other than the top contributors
