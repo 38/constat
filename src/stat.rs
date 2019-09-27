@@ -39,6 +39,7 @@ impl<'a> PendingStat<'a> {
         self,
         mut commit_scanned: impl FnMut(&Commit, &[usize], Ref<AuthorIndex>, usize),
     ) -> Result<(), GitError> {
+        eprintln!("Analyzing commits ...");
         let repo = Repository::open(self.path.as_path())?;
 
         let last_commit = match self.last_commit {
