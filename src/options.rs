@@ -10,6 +10,7 @@ pub struct ConstatOptions {
     pub resolution: (u32, u32),
     pub patterns: Vec<Pattern>,
     pub top_only: bool,
+    pub open: bool,
     _temp_file_handle: Option<TempDir>,
 }
 
@@ -30,6 +31,7 @@ impl ConstatOptions {
             resolution: get_resolution(&options),
             patterns,
             top_only: options.is_present("top-only"),
+            open: options.is_present("open"),
             _temp_file_handle: handle,
         }
     }

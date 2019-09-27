@@ -32,3 +32,6 @@ args:
         short: 'T'
         long: 'top-only'
         help: Make constat do not visualize the contribution made by people other than the top contributors
+    - open:
+        long: 'open'
+        help: Use the default system image viewer to open the generated stats result

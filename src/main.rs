@@ -114,4 +114,8 @@ fn main() {
 
         renderer.draw();
     }
+
+    if options.open {
+        open::that(options.out_path).ok();
+    }
 }
