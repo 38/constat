@@ -1,54 +1,92 @@
 use crate::author::AuthorStat;
 
-pub struct RepoFile(Vec<u16>);
+pub struct RepoFile {
+    author: Vec<u16>,
+    tracking: bool,
+}
+
+impl Drop for RepoFile {
+    fn drop(&mut self) {
+        if self.tracking {
+            panic!("Code bug: unable to drop a tracking file");
+        }
+    }
+}
+
 impl RepoFile {
     pub fn iter(&self) -> impl Iterator<Item = &u16> {
-        self.0.iter()
+        self.author.iter()
     }
-    pub fn empty() -> Self {
-        RepoFile(vec![])
+    pub fn empty(tracking: bool) -> Self {
+        RepoFile {
+            author: vec![],
+            tracking,
+        }
     }
+
+    pub fn set_tracking_flag(&mut self, flag: bool, stat: Option<&mut AuthorStat>) {
+        if let Some(stat) = stat {
+            let delta = match (self.tracking, flag) {
+                (true, false) => -1,
+                (false, true) => 1,
+                _ => 0,
+            };
+
+            if delta != 0 {
+                for author in self.iter() {
+                    stat.incrment_author(*author, delta);
+                }
+            }
+        }
+
+        self.tracking = flag;
+    }
+
     pub fn update(
-        &self,
+        &mut self,
         author: u16,
         mut patch: impl Iterator<Item = (Option<usize>, Option<usize>)>,
         stat: &mut AuthorStat,
-    ) -> Self {
-        let mut ret = RepoFile(vec![]);
+    ) {
+        let mut new_file = vec![];
 
         let mut next_patch = patch.next();
         let mut new_pos = 0;
         let mut old_pos = 0;
 
-        while next_patch.is_some() || old_pos < self.0.len() {
+        while next_patch.is_some() || old_pos < self.author.len() {
             let patch_applied = match &next_patch {
                 Some((Some(old), Some(_new))) if *old == old_pos => {
-                    ret.0.push(author);
-                    stat.incrment_author(self.0[old_pos], -1);
-                    stat.incrment_author(author, 1);
+                    new_file.push(author);
+                    if self.tracking {
+                        stat.incrment_author(self.author[old_pos], -1);
+                        stat.incrment_author(author, 1);
+                    }
                     new_pos += 1;
                     old_pos += 1;
                     true
                 }
                 Some((None, Some(new))) if *new == new_pos => {
-                    ret.0.push(author);
+                    new_file.push(author);
                     new_pos += 1;
-                    stat.incrment_author(author, 1);
+                    if self.tracking {
+                        stat.incrment_author(author, 1);
+                    }
                     true
                 }
                 Some((Some(old), None)) if *old == old_pos => {
                     // old_pos might be out of bound if the file
                     // is previously changed form a bindary to a text
-                    if self.0.len() > old_pos {
-                        stat.incrment_author(self.0[old_pos], -1);
+                    if self.author.len() > old_pos && self.tracking {
+                        stat.incrment_author(self.author[old_pos], -1);
                     }
                     old_pos += 1;
                     true
                 }
                 Some((None, None)) => true,
                 _ => {
-                    if self.0.len() > old_pos {
-                        ret.0.push(self.0[old_pos]);
+                    if self.author.len() > old_pos {
+                        new_file.push(self.author[old_pos]);
                     }
                     new_pos += 1;
                     old_pos += 1;
@@ -61,6 +99,6 @@ impl RepoFile {
             }
         }
 
-        ret
+        self.author = new_file;
     }
 }

@@ -1,4 +1,5 @@
 use git2::{BranchType, Commit, Error as GitError, Oid, Repository};
+use glob::Pattern;
 
 use std::cell::{Ref, RefCell};
 use std::path::{Path, PathBuf};
@@ -13,16 +14,18 @@ pub enum VersionSpec {
     Branch(String),
 }
 
-pub struct PendingStat {
+pub struct PendingStat<'a> {
     path: PathBuf,
     last_commit: VersionSpec,
+    patterns: &'a [Pattern],
 }
 
-impl PendingStat {
-    pub fn new<P: AsRef<Path>>(path: P) -> Self {
+impl<'a> PendingStat<'a> {
+    pub fn new<P: AsRef<Path>>(path: P, patterns: &'a [Pattern]) -> Self {
         Self {
             path: path.as_ref().to_owned(),
             last_commit: VersionSpec::Head,
+            patterns,
         }
     }
 
@@ -53,7 +56,7 @@ impl PendingStat {
             commits.push(commit);
         }
 
-        let mut model = GitRepo::empty();
+        let mut model = GitRepo::empty(self.patterns);
         let mut author_stat = AuthorStat::new();
         let mut author_index = RefCell::new(AuthorIndex::new());
         for (i, next) in (0..).zip(commits.iter().rev()) {

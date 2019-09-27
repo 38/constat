@@ -3,9 +3,10 @@ version: 0.0.1
 author: Hao Hou <haohou302@gmail.com>
 args:
     - repository:
-        value_name: REPO-PATH
+        value_name: REPO_PATH
         help: The path to the repository
         index: 1
+        required: true
     - top:
         short: 't' 
         help: Showing the top N contributors on the chart
@@ -18,6 +19,12 @@ args:
         value_name: 'OUT-FILE'
     - resolution:
         short: 'r'
-        help: The resolution of the result image
+        help: The resolution of the result image in format <width>x<height>. By default, it's 1024x768
         long: 'resolution'
-        value_name: '<WIDTH>x<HEIGHT>'
+        value_name: 'RESOLUTION'
+    - file-patterns:
+        value_name: FILE_PATTERN
+        help: The glob pattern that matches anything that needs to be included in stats. Use '[!....]' to allow exclusive patterns
+        multiple: true
+        index: 2
+        required: false

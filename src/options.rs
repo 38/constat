@@ -1,4 +1,5 @@
-use clap::{load_yaml, App, ArgMatches};
+use clap::{load_yaml, values_t_or_exit, App, ArgMatches};
+use glob::Pattern;
 use std::path::{Path, PathBuf};
 use tempfile::{tempdir, TempDir};
 
@@ -7,6 +8,7 @@ pub struct ConstatOptions {
     pub top: usize,
     pub out_path: PathBuf,
     pub resolution: (u32, u32),
+    pub patterns: Vec<Pattern>,
     _temp_file_handle: Option<TempDir>,
 }
 
@@ -18,14 +20,24 @@ impl ConstatOptions {
         let (repo_path, handle) = get_repo_path(&options);
         let out_path = get_out_path(&options, repo_path.as_ref());
 
+        let patterns = parse_patterns(&options);
+
         Self {
             repo_path,
             top: get_num_tops(&options),
             out_path,
             resolution: get_resolution(&options),
+            patterns,
             _temp_file_handle: handle,
         }
     }
+}
+
+fn parse_patterns(parsed: &ArgMatches) -> Vec<Pattern> {
+    if !parsed.is_present("file-patterns") {
+        return vec!["**/*".parse().unwrap()];
+    }
+    values_t_or_exit!(parsed.values_of("file-patterns"), Pattern)
 }
 
 fn get_repo_path(parsed: &ArgMatches) -> (PathBuf, Option<TempDir>) {
@@ -44,7 +56,7 @@ fn get_repo_path(parsed: &ArgMatches) -> (PathBuf, Option<TempDir>) {
 
     path.push(name);
 
-    eprintln!("Cloning remote repo into temp dir {:?}", path);
+    eprintln!("Cloning remote repo into temp dir {:?} ...", path);
 
     git2::Repository::clone(url, &path).unwrap();
 

@@ -17,7 +17,7 @@ use std::collections::{HashMap, HashSet};
 fn main() {
     let options = ConstatOptions::new();
 
-    let ps = PendingStat::new(&options.repo_path);
+    let ps = PendingStat::new(&options.repo_path, &options.patterns[..]);
 
     let mut author_info: HashMap<_, Vec<(_, usize)>> = HashMap::new();
 
