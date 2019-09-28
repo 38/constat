@@ -88,10 +88,9 @@ impl<D: DrawingBackend> Renderer<D> {
 
         let mut accumulate = vec![0; time_values.len()];
 
-        let mut last_points = vec![(min_time, 0), (max_time, 0)];
-
         for (i, (name, stat)) in (0..).zip(self.data.into_iter()) {
             let mut points = vec![];
+            let mut back_points = vec![];
 
             let mut last_idx = stat.first().map_or(0, |(time, _)| time_table[time]);
 
@@ -99,6 +98,7 @@ impl<D: DrawingBackend> Renderer<D> {
                 let this_idx = time_table[&time];
 
                 for idx in last_idx..=this_idx {
+                    back_points.push((time, accumulate[idx]));
                     accumulate[idx] += count;
                     points.push((time, accumulate[idx]));
                 }
@@ -106,23 +106,16 @@ impl<D: DrawingBackend> Renderer<D> {
                 last_idx = this_idx + 1;
             }
 
-            /*for (time, count) in stat {
-                *accumulate.entry(time).or_insert(0) += count;
-                points.push((time, accumulate[&time]));
-            }*/
-
-            let mut vert = points.clone();
-
-            for p in last_points.iter().rev() {
-                if p.0 < vert[0].0 {
-                    break;
-                }
-                vert.push(p.clone());
-            }
-
             let c = Palette99::pick(i);
             chart
-                .draw_series(std::iter::once(Polygon::new(vert, &c.mix(0.4))))
+                .draw_series(std::iter::once(Polygon::new(
+                    points
+                        .clone()
+                        .into_iter()
+                        .chain(back_points.into_iter().rev())
+                        .collect::<Vec<_>>(),
+                    &c.mix(0.4),
+                )))
                 .unwrap();
             chart
                 .draw_series(std::iter::once(PathElement::new(points.clone(), &c)))
@@ -131,8 +124,6 @@ impl<D: DrawingBackend> Renderer<D> {
                 .legend(move |(x, y)| {
                     Rectangle::new([(x, y - 5), (x + 20, y + 5)], c.mix(0.4).filled())
                 });
-
-            last_points = points;
         }
 
         chart

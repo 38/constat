@@ -92,7 +92,9 @@ fn main() {
         let mut buf = vec![];
 
         for (name, _) in max_loc {
-            buf.push((name.to_string(), author_info.remove(&name).unwrap()));
+            let mut stat = author_info.remove(&name).unwrap();
+            stat.sort();
+            buf.push((name.to_string(), stat));
         }
 
         if !others.is_empty() && !options.top_only {
