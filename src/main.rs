@@ -93,11 +93,11 @@ fn main() {
         }
 
         buf.sort_by_key(|(name, stats)| {
-            if name == "Older Code" {
+            /*if name == "Older Code" {
                 Utc.ymd(1969, 1, 1)
             } else if name == "Others" {
                 Utc.ymd(1970, 1, 1)
-            } else {
+            } else*/ {
                 stats.first().unwrap().0
             }
         });
