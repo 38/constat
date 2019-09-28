@@ -15,6 +15,8 @@ pub struct ConstatOptions {
     pub top_only: bool,
     pub open: bool,
     pub since: Option<VersionSpec>,
+    pub exclude_older: bool,
+    pub quiet: bool,
     _temp_file_handle: Option<TempDir>,
 }
 
@@ -41,6 +43,8 @@ impl ConstatOptions {
             } else {
                 None
             },
+            exclude_older: options.is_present("exclude-older"),
+            quiet: options.is_present("quiet"),
             _temp_file_handle: handle,
         }
     }

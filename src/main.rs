@@ -27,12 +27,16 @@ fn main() {
 
     let mut pb = None;
 
-    ps.run(|commit, stat, authors, total| {
-        if pb.is_none() {
-            pb = Some(indicatif::ProgressBar::new(total as u64));
-        }
+    let quiet = options.quiet;
 
-        pb.as_ref().unwrap().inc(1);
+    ps.run(|commit, stat, authors, total| {
+        if !quiet {
+            if pb.is_none() {
+                pb = Some(indicatif::ProgressBar::new(total as u64));
+            }
+
+            pb.as_ref().unwrap().inc(1);
+        }
         for (i, s) in (0..).zip(stat.iter()) {
             let value = author_info
                 .entry(authors.get_name_by_id(i).unwrap_or("N/A").to_string())
@@ -52,9 +56,16 @@ fn main() {
     .unwrap();
 
     let author_info = {
+        let exclude_older = options.exclude_older;
         let mut max_loc: Vec<_> = author_info
             .iter()
-            .map(|(name, stat)| (name.to_string(), stat.iter().map(|x| x.1).max().unwrap()))
+            .filter_map(|(name, stat)| {
+                if exclude_older && name == "Older Code" {
+                    None
+                } else {
+                    Some((name.to_string(), stat.iter().map(|x| x.1).max().unwrap()))
+                }
+            })
             .collect();
 
         max_loc.sort_by_key(|x| std::cmp::Reverse(x.1));
@@ -63,14 +74,10 @@ fn main() {
 
         let mut others = HashMap::new();
 
-        let mut is_top_authors = HashSet::new();
-
-        for (name, _) in &max_loc {
-            is_top_authors.insert(&name[..]);
-        }
+        let is_top_authors: HashSet<_> = max_loc.iter().map(|(name, _)| name.as_ref()).collect();
 
         for (name, stats) in author_info.iter() {
-            if is_top_authors.contains(&name[..]) {
+            if is_top_authors.contains(&name[..]) || (exclude_older && name == "Older Code") {
                 continue;
             }
 
@@ -92,12 +99,13 @@ fn main() {
             buf.push(("Others".to_string(), others));
         }
 
-        buf.sort_by_key(|(name, stats)| {
+        buf.sort_by_key(|(_name, stats)| {
             /*if name == "Older Code" {
                 Utc.ymd(1969, 1, 1)
             } else if name == "Others" {
                 Utc.ymd(1970, 1, 1)
-            } else*/ {
+            } else*/
+            {
                 stats.first().unwrap().0
             }
         });
