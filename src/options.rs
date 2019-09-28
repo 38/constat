@@ -1,7 +1,10 @@
-use clap::{load_yaml, values_t_or_exit, App, ArgMatches};
+use chrono::{Date, NaiveDate, TimeZone, Utc};
+use clap::{load_yaml, value_t_or_exit, values_t_or_exit, App, ArgMatches};
 use glob::Pattern;
 use std::path::{Path, PathBuf};
 use tempfile::{tempdir, TempDir};
+
+use crate::stat::VersionSpec;
 
 pub struct ConstatOptions {
     pub repo_path: PathBuf,
@@ -11,6 +14,7 @@ pub struct ConstatOptions {
     pub patterns: Vec<Pattern>,
     pub top_only: bool,
     pub open: bool,
+    pub since: Option<VersionSpec>,
     _temp_file_handle: Option<TempDir>,
 }
 
@@ -32,9 +36,19 @@ impl ConstatOptions {
             patterns,
             top_only: options.is_present("top-only"),
             open: options.is_present("open"),
+            since: if options.is_present("since-date") {
+                Some(VersionSpec::FirstAfter(parse_date(&options, "since-date")))
+            } else {
+                None
+            },
             _temp_file_handle: handle,
         }
     }
+}
+
+fn parse_date(parsed: &ArgMatches, name: &str) -> Date<Utc> {
+    let nd = value_t_or_exit!(parsed.value_of(name), NaiveDate);
+    Utc.from_utc_date(&nd)
 }
 
 fn parse_patterns(parsed: &ArgMatches) -> Vec<Pattern> {

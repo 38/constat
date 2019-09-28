@@ -35,3 +35,7 @@ args:
     - open:
         long: 'open'
         help: Use the default system image viewer to open the generated stats result
+    - since-date:
+        long: 'since-date'
+        value_name: DATE
+        help: Run stat on the changes after this date

@@ -17,7 +17,11 @@ use std::collections::{HashMap, HashSet};
 fn main() {
     let options = ConstatOptions::new();
 
-    let ps = PendingStat::new(&options.repo_path, &options.patterns[..]);
+    let mut ps = PendingStat::new(&options.repo_path, &options.patterns[..]);
+
+    if let Some(since) = options.since {
+        ps.base_commit(since);
+    }
 
     let mut author_info: HashMap<_, Vec<(_, usize)>> = HashMap::new();
 
@@ -89,7 +93,9 @@ fn main() {
         }
 
         buf.sort_by_key(|(name, stats)| {
-            if name == "Others" {
+            if name == "Older Code" {
+                Utc.ymd(1969, 1, 1)
+            } else if name == "Others" {
                 Utc.ymd(1970, 1, 1)
             } else {
                 stats.first().unwrap().0
