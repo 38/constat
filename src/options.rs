@@ -3,6 +3,7 @@ use clap::{load_yaml, value_t_or_exit, values_t_or_exit, App, ArgMatches};
 use glob::Pattern;
 use std::path::{Path, PathBuf};
 use tempfile::{tempdir, TempDir};
+use std::str::FromStr;
 
 pub struct ConstatOptions {
     pub repo_path: PathBuf,
@@ -15,6 +16,7 @@ pub struct ConstatOptions {
     //pub since: Option<VersionSpec>,
     pub exclude_older: bool,
     pub quiet: bool,
+    pub pinned_author: Vec<Pattern>,
     _temp_file_handle: Option<TempDir>,
 }
 
@@ -27,6 +29,9 @@ impl ConstatOptions {
         let out_path = get_out_path(&options, repo_path.as_ref());
 
         let patterns = parse_patterns(&options);
+        let pinned_author = options.value_of("keep-author").map_or_else(|| vec![], |author| {
+            author.split(",").map(|p| p.parse().unwrap()).collect()
+        });
 
         Self {
             repo_path,
@@ -36,6 +41,7 @@ impl ConstatOptions {
             patterns,
             top_only: options.is_present("top-only"),
             open: options.is_present("open"),
+            pinned_author,
             /*since: if options.is_present("since-date") {
                 Some(VersionSpec::FirstAfter(parse_date(&options, "since-date")))
             } else {
@@ -47,7 +53,7 @@ impl ConstatOptions {
         }
     }
 }
-
+#[allow(dead_code)]
 fn parse_date(parsed: &ArgMatches, name: &str) -> Date<Utc> {
     let nd = value_t_or_exit!(parsed.value_of(name), NaiveDate);
     Utc.from_utc_date(&nd)

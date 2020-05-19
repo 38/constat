@@ -15,6 +15,15 @@ pub fn run_stat<P: AsRef<Path>, S: FnMut(&GitRepo, &GitCommit, &Tree, usize, usi
 
     let commit = repo.find_commit(repo::VersionSpec::Head).unwrap();
 
+    /*{
+        let test_commit = repo.find_commit(repo::VersionSpec::Commit("9fdb62af92c741addbea15545f214a6e89460865")).unwrap();
+        let pc = test_commit.parents();
+        let ts:Vec<_> = pc.iter().map(|_| Tree::empty()).collect();
+        let tsr:Vec<_> = ts.iter().collect();
+        let diff = test_commit.diff_with(pc.iter()).unwrap();
+        Tree::analyze_patch(&tsr, &diff, 0);
+    }*/
+
     let result = commit.topological_sort(|_| true).unwrap();
 
     let plan = result.plan();
@@ -25,9 +34,10 @@ pub fn run_stat<P: AsRef<Path>, S: FnMut(&GitRepo, &GitCommit, &Tree, usize, usi
         let step = &plan[i];
 
         let commit = result.get_commit(step.processing).unwrap();
+        let parent_commits = result.get_parent_commits(step.processing);
 
-        let mut patch = commit.diff_with(commit.parents().iter()).unwrap();
-        let mut parents: Vec<_> = result
+        let patch = commit.diff_with(parent_commits.iter()).unwrap();
+        let parents: Vec<_> = result
             .get_parent_idx(step.processing)
             .unwrap()
             .iter()

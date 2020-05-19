@@ -1,6 +1,6 @@
 use chrono::{Date, Utc};
 
-use plotters::prelude::Path as PathElement;
+use plotters::prelude::PathElement;
 use plotters::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
@@ -43,12 +43,12 @@ impl<D: DrawingBackend> Renderer<D> {
         root.fill(&WHITE).unwrap();
 
         let mut chart = ChartBuilder::on(&root)
-            .set_label_area_size(LabelAreaPosition::Left, 60)
-            .set_label_area_size(LabelAreaPosition::Bottom, 40)
+            .set_label_area_size(LabelAreaPosition::Left, (10).percent_width())
+            .set_label_area_size(LabelAreaPosition::Bottom, (10).percent_height())
             .margin(10)
             .caption(
                 format!("Contributor Stat for {}", self.repo_name),
-                ("Arial", 40),
+                ("Arial", (5).percent_height()),
             )
             .build_ranged(min_time..max_time, 0..(max_loc))
             .unwrap();
@@ -98,9 +98,9 @@ impl<D: DrawingBackend> Renderer<D> {
                 let this_idx = time_table[&time];
 
                 for idx in last_idx..=this_idx {
-                    back_points.push((time, accumulate[idx]));
+                    back_points.push((time_values[idx], accumulate[idx]));
                     accumulate[idx] += count;
-                    points.push((time, accumulate[idx]));
+                    points.push((time_values[idx], accumulate[idx]));
                 }
 
                 last_idx = this_idx + 1;

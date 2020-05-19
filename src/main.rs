@@ -5,23 +5,23 @@ mod plotting;
 use options::ConstatOptions;
 use plotting::Renderer;
 
-use chrono::{Duration, TimeZone, Utc};
 use plotters::prelude::*;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, BTreeMap};
 
 fn main() {
+
     let options = ConstatOptions::new();
 
-    let mut author_info: HashMap<_, Vec<(_, usize)>> = HashMap::new();
+    let mut author_info: HashMap<_, BTreeMap<_, usize>> = HashMap::new();
 
     let mut pb = None;
 
     let quiet = options.quiet;
 
-    let mut last_id = None;
-
-    analyzer::run_stat(&options.repo_path, |repo, commit, tree, proc, total| {
+    analyzer::run_stat(&options.repo_path, |repo, commit, tree, _proc, total| {
+        let date = commit.get_timestamp().unwrap().date();
+        
         if !quiet {
             if pb.is_none() {
                 pb = Some(indicatif::ProgressBar::new(total as u64));
@@ -30,23 +30,17 @@ fn main() {
             pb.as_ref().unwrap().inc(1);
         }
 
-        if last_id.is_some() && !commit.parents().into_iter().any(|c| c.id() == last_id) {
-            return;
-        }
-
-        last_id = commit.id();
-
-        let date = commit.get_timestamp().unwrap().date();
-
         for (author_id, count) in tree
             .stat(|f| options.patterns.iter().any(|p| p.matches_path(f)))
             .into_iter()
             .enumerate()
         {
-            author_info
+            let cell = author_info
                 .entry(repo.query_author_name(author_id as u32).unwrap())
-                .or_insert_with(|| vec![])
-                .push((date, count as usize))
+                .or_insert_with(|| BTreeMap::new())
+                .entry(date)
+                .or_default();
+            *cell = (*cell).max(count as usize);
         }
     });
 
@@ -55,17 +49,22 @@ fn main() {
         let mut max_loc: Vec<_> = author_info
             .iter()
             .filter_map(|(name, stat)| {
-                if exclude_older && name == "Older Code" {
-                    None
-                } else {
-                    Some((name.to_string(), stat.iter().map(|x| x.1).max().unwrap()))
-                }
+                Some((name.to_string(), *stat.iter().map(|x| x.1).max().unwrap()))
             })
             .collect();
 
         max_loc.sort_by_key(|x| std::cmp::Reverse(x.1));
 
-        max_loc.truncate(options.top);
+        let mut to_keep = options.top;
+        for idx in options.top..max_loc.len() {
+            let (name, count) = &max_loc[idx];
+            if options.pinned_author.iter().any(|p| p.matches(name)) {
+                max_loc[to_keep] = (name.to_owned(), *count);
+                to_keep += 1;
+            }
+        }
+
+        max_loc.truncate(to_keep);
 
         let mut others = HashMap::new();
 
@@ -83,12 +82,10 @@ fn main() {
 
         let mut others: Vec<_> = others.into_iter().collect();
         others.sort();
-
         let mut buf = vec![];
 
         for (name, _) in max_loc {
-            let mut stat = author_info.remove(&name).unwrap();
-            stat.sort();
+            let stat = author_info.remove(&name).unwrap().into_iter().collect();
             buf.push((name.to_string(), stat));
         }
 
@@ -97,14 +94,7 @@ fn main() {
         }
 
         buf.sort_by_key(|(_name, stats)| {
-            /*if name == "Older Code" {
-                Utc.ymd(1969, 1, 1)
-            } else if name == "Others" {
-                Utc.ymd(1970, 1, 1)
-            } else*/
-            {
-                stats.first().unwrap().0
-            }
+            stats.first().unwrap().0
         });
 
         buf
@@ -119,6 +109,7 @@ fn main() {
             options.repo_path,
             author_info,
             SVGBackend::new(&options.out_path, options.resolution),
+
         );
 
         renderer.draw();

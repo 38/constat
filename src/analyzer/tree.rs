@@ -3,8 +3,6 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use super::repo::GitRepo;
-
 #[derive(Clone)]
 pub struct LineBlock {
     author_id: u32,
@@ -93,8 +91,7 @@ fn merge_file_patch<'a>(
                     *p = &p[1..];
                 }
             }
-            assert!(author_ofs <= patches.len());
-            if author_ofs > 0 {
+            if author_ofs > 0 && author_ofs <= patches.len() {
                 ret.push(Addition {
                     line: next_line as u32,
                     author: patches[author_ofs as usize - 1].0,
@@ -130,7 +127,7 @@ impl<'a> Tree<'a> {
                 self.root.remove(old);
                 self.root.insert(new.to_owned(), other.root[old].clone());
             }
-            (Some(old), Some(new)) => {}
+            (Some(_old), Some(_new)) => {}
             (_, Some(new)) => {
                 self.root.insert(new.to_owned(), Cow::Owned(vec![]));
             }
