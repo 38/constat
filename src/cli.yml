@@ -35,14 +35,14 @@ args:
     - open:
         long: 'open'
         help: Use the default system image viewer to open the generated stats result
-    - since-date:
-        long: 'since-date'
-        value_name: DATE
-        help: Run stat on the changes after this date
-    - exclude-older:
-        long: 'exclude-older'
-        help: Do not include the orlder code before the stats range in the result plot
     - quiet:
         long: 'quiet'
         short: 'q'
         help: Do not show progress bar
+#    - since-date:
+#        long: 'since-date'
+#        value_name: DATE
+#        help: Run stat on the changes after this date
+#    - exclude-older:
+#        long: 'exclude-older'
+#        help: Do not include the orlder code before the stats range in the result plot

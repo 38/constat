@@ -5,6 +5,8 @@ mod plotting;
 mod repo;
 mod stat;
 
+mod analyzer;
+
 use options::ConstatOptions;
 use plotting::Renderer;
 use stat::PendingStat;
@@ -17,19 +19,15 @@ use std::collections::{HashMap, HashSet};
 fn main() {
     let options = ConstatOptions::new();
 
-    let mut ps = PendingStat::new(&options.repo_path, &options.patterns[..]);
-
-    if let Some(since) = options.since {
-        ps.base_commit(since);
-    }
-
     let mut author_info: HashMap<_, Vec<(_, usize)>> = HashMap::new();
 
     let mut pb = None;
 
     let quiet = options.quiet;
 
-    ps.run(|commit, stat, authors, total| {
+    let mut last_id = None;
+
+    analyzer::run_stat(&options.repo_path, |repo, commit, tree, proc, total| {
         if !quiet {
             if pb.is_none() {
                 pb = Some(indicatif::ProgressBar::new(total as u64));
@@ -37,23 +35,26 @@ fn main() {
 
             pb.as_ref().unwrap().inc(1);
         }
-        for (i, s) in (0..).zip(stat.iter()) {
-            let value = author_info
-                .entry(authors.get_name_by_id(i).unwrap_or("N/A").to_string())
-                .or_insert_with(|| vec![]);
 
-            let timestamp = Utc.ymd(1970, 1, 1) + Duration::seconds(commit.time().seconds());
-            if let Some(what) = value.last_mut() {
-                if what.0 == timestamp {
-                    what.1 = what.1.max(*s);
-                    continue;
-                }
-            }
-
-            value.push((timestamp, *s));
+        if last_id.is_some() && !commit.parents().into_iter().any(|c| c.id() == last_id) {
+            return;
         }
-    })
-    .unwrap();
+
+        last_id = commit.id();
+
+        let date = commit.get_timestamp().unwrap().date();
+
+        for (author_id, count) in tree
+            .stat(|f| options.patterns.iter().any(|p| p.matches_path(f)))
+            .into_iter()
+            .enumerate()
+        {
+            author_info
+                .entry(repo.query_author_name(author_id as u32).unwrap())
+                .or_insert_with(|| vec![])
+                .push((date, count as usize))
+        }
+    });
 
     let author_info = {
         let exclude_older = options.exclude_older;
