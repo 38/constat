@@ -4,8 +4,6 @@ use glob::Pattern;
 use std::path::{Path, PathBuf};
 use tempfile::{tempdir, TempDir};
 
-use crate::stat::VersionSpec;
-
 pub struct ConstatOptions {
     pub repo_path: PathBuf,
     pub top: usize,
@@ -14,7 +12,7 @@ pub struct ConstatOptions {
     pub patterns: Vec<Pattern>,
     pub top_only: bool,
     pub open: bool,
-    pub since: Option<VersionSpec>,
+    //pub since: Option<VersionSpec>,
     pub exclude_older: bool,
     pub quiet: bool,
     _temp_file_handle: Option<TempDir>,
@@ -38,11 +36,11 @@ impl ConstatOptions {
             patterns,
             top_only: options.is_present("top-only"),
             open: options.is_present("open"),
-            since: if options.is_present("since-date") {
+            /*since: if options.is_present("since-date") {
                 Some(VersionSpec::FirstAfter(parse_date(&options, "since-date")))
             } else {
                 None
-            },
+            },*/
             exclude_older: options.is_present("exclude-older"),
             quiet: options.is_present("quiet"),
             _temp_file_handle: handle,

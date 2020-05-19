@@ -1,15 +1,9 @@
-mod author;
-mod file;
+mod analyzer;
 mod options;
 mod plotting;
-mod repo;
-mod stat;
-
-mod analyzer;
 
 use options::ConstatOptions;
 use plotting::Renderer;
-use stat::PendingStat;
 
 use chrono::{Duration, TimeZone, Utc};
 use plotters::prelude::*;
