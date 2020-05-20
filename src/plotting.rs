@@ -1,4 +1,4 @@
-use chrono::{Date, Utc};
+use chrono::{Date, Utc, Duration};
 
 use plotters::prelude::PathElement;
 use plotters::prelude::*;
@@ -64,13 +64,20 @@ impl<D: DrawingBackend> Renderer<D> {
             let mut time_values: Vec<_> = self
                 .data
                 .iter()
-                .map(|(_, stat)| stat.iter().map(|(time, _)| time.clone()))
+                .map(|(_, stat)| {
+                    stat.iter().map(|(time, _)|{
+                        let time = time.clone() - Duration::days(1);
+                        (0..2).map(move |days| {
+                            time.clone() + Duration::days(days)
+                        })
+                    }).flatten()
+                })
                 .flatten()
                 .collect();
             time_values.sort();
-            let mut j = 0;
-            for i in 0..time_values.len() {
-                if i == 0 || time_values[i - 1] != time_values[i] {
+            let mut j = 1;
+            for i in 1..time_values.len() {
+                if time_values[j - 1] != time_values[i] {
                     time_values[j] = time_values[i];
                     j += 1;
                 }
@@ -92,18 +99,16 @@ impl<D: DrawingBackend> Renderer<D> {
             let mut points = vec![];
             let mut back_points = vec![];
 
-            let mut last_idx = stat.first().map_or(0, |(time, _)| time_table[time]);
+            let end_points = stat.iter().skip(1).map(|(time, _)| time_table[time]).chain(std::iter::once(time_values.len() - 1));
+            let start_points = stat.iter().map(|(time, _)| time_table[time]);
+            let interval_iter = start_points.zip(end_points).enumerate().map(|(idx, (start, end))| (idx, start, end));
 
-            for (time, count) in stat {
-                let this_idx = time_table[&time];
-
-                for idx in last_idx..=this_idx {
+            for (stat_idx, start, end) in interval_iter {
+                for idx in start..end {
                     back_points.push((time_values[idx], accumulate[idx]));
-                    accumulate[idx] += count;
+                    accumulate[idx] += stat[stat_idx].1;
                     points.push((time_values[idx], accumulate[idx]));
                 }
-
-                last_idx = this_idx + 1;
             }
 
             let c = Palette99::pick(i);

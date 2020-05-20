@@ -2,7 +2,6 @@ use chrono::{Date, NaiveDate, TimeZone, Utc};
 use clap::{load_yaml, value_t_or_exit, values_t_or_exit, App, ArgMatches};
 use glob::Pattern;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 use tempfile::{tempdir, TempDir};
 
 pub struct ConstatOptions {
@@ -13,7 +12,6 @@ pub struct ConstatOptions {
     pub patterns: Vec<Pattern>,
     pub top_only: bool,
     pub open: bool,
-    //pub since: Option<VersionSpec>,
     pub since: Option<Date<Utc>>,
     pub exclude_older: bool,
     pub quiet: bool,

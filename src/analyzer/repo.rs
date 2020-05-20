@@ -218,6 +218,7 @@ impl<'a> GitCommit<'a> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_author_by_name(&self, name: &str) -> u32 {
         self.repo.query_author_id(name)
     }
