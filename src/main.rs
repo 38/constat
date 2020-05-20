@@ -7,10 +7,9 @@ use plotting::Renderer;
 
 use plotters::prelude::*;
 
-use std::collections::{HashMap, HashSet, BTreeMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 fn main() {
-
     let options = ConstatOptions::new();
 
     let mut author_info: HashMap<_, BTreeMap<_, usize>> = HashMap::new();
@@ -19,37 +18,50 @@ fn main() {
 
     let quiet = options.quiet;
 
-    analyzer::run_stat(&options.repo_path, |repo, commit, tree, _proc, total| {
-        let date = commit.get_timestamp().unwrap().date();
-        
-        if !quiet {
-            if pb.is_none() {
-                pb = Some(indicatif::ProgressBar::new(total as u64));
+    analyzer::run_stat(
+        &options.repo_path,
+        |commit| {
+            let time = commit.get_timestamp();
+            time.map_or(true, |ts| {
+                options.since.map_or(true, |since| ts.date() >= since)
+            })
+        },
+        |repo, commit, tree, _proc, total| {
+            let date = commit.get_timestamp().unwrap().date();
+
+            if !quiet {
+                if pb.is_none() {
+                    pb = Some(indicatif::ProgressBar::new(total as u64));
+                }
+
+                pb.as_ref().unwrap().inc(1);
             }
 
-            pb.as_ref().unwrap().inc(1);
-        }
-
-        for (author_id, count) in tree
-            .stat(|f| options.patterns.iter().any(|p| p.matches_path(f)))
-            .into_iter()
-            .enumerate()
-        {
-            let cell = author_info
-                .entry(repo.query_author_name(author_id as u32).unwrap())
-                .or_insert_with(|| BTreeMap::new())
-                .entry(date)
-                .or_default();
-            *cell = (*cell).max(count as usize);
-        }
-    });
+            for (author_id, count) in tree
+                .stat(|f| options.patterns.iter().any(|p| p.matches_path(f)))
+                .into_iter()
+                .enumerate()
+            {
+                let cell = author_info
+                    .entry(repo.query_author_name(author_id as u32).unwrap())
+                    .or_insert_with(|| BTreeMap::new())
+                    .entry(date)
+                    .or_default();
+                *cell = (*cell).max(count as usize);
+            }
+        },
+    );
 
     let author_info = {
         let exclude_older = options.exclude_older;
         let mut max_loc: Vec<_> = author_info
             .iter()
             .filter_map(|(name, stat)| {
-                Some((name.to_string(), *stat.iter().map(|x| x.1).max().unwrap()))
+                if exclude_older && name == "Older Code" {
+                    None
+                } else {
+                    Some((name.to_string(), *stat.iter().map(|x| x.1).max().unwrap()))
+                }
             })
             .collect();
 
@@ -93,9 +105,7 @@ fn main() {
             buf.push(("Others".to_string(), others));
         }
 
-        buf.sort_by_key(|(_name, stats)| {
-            stats.first().unwrap().0
-        });
+        buf.sort_by_key(|(_name, stats)| stats.first().unwrap().0);
 
         buf
     };
@@ -109,7 +119,6 @@ fn main() {
             options.repo_path,
             author_info,
             SVGBackend::new(&options.out_path, options.resolution),
-
         );
 
         renderer.draw();

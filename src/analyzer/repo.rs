@@ -1,9 +1,9 @@
 use git2::{Commit, Error, Oid, Repository};
 
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
-use std::borrow::Cow;
 
 use super::patch::TreePatch;
 
@@ -58,9 +58,11 @@ impl GitRepo {
         let new_aid = self.query_author_id(new_commit.author().name().unwrap_or("<Unknown>"));
         let mut diff_option = git2::DiffOptions::new();
         diff_option.skip_binary_check(true);
-        let mut diff = self
-            .inner
-            .diff_tree_to_tree(old_tree.as_ref(), Some(&new_tree),  Some(&mut diff_option))?;
+        let mut diff = self.inner.diff_tree_to_tree(
+            old_tree.as_ref(),
+            Some(&new_tree),
+            Some(&mut diff_option),
+        )?;
         diff.find_similar(None)?;
         let ret = RefCell::new(TreePatch::empty(new_aid, old_aid));
 
@@ -145,15 +147,16 @@ impl<'a> HistoryGraph<'a> {
         self.adj_table.get(idx).map(AsRef::as_ref)
     }
 
-    pub fn get_parent_commits<'b>(&'b self, idx: usize) -> Vec<GitCommit<'b>> 
-    where 'a: 'b
+    pub fn get_parent_commits<'b>(&'b self, idx: usize) -> Vec<GitCommit<'b>>
+    where
+        'a: 'b,
     {
         let mut ret = vec![];
 
-        for &pid in self.get_parent_idx(idx).unwrap_or(&[][..])  {
+        for &pid in self.get_parent_idx(idx).unwrap_or(&[][..]) {
             ret.push(GitCommit {
-                repo:self.repo,
-                inner: Some(self.commits[pid].clone())
+                repo: self.repo,
+                inner: Some(self.commits[pid].clone()),
             });
         }
         ret
@@ -200,6 +203,12 @@ pub struct GitCommit<'a> {
 }
 
 impl<'a> GitCommit<'a> {
+    pub fn scratch(&self) -> GitCommit {
+        Self {
+            repo: self.repo,
+            inner: None,
+        }
+    }
     pub fn get_timestamp(&self) -> Option<DateTime<Utc>> {
         if let Some(commit) = &self.inner {
             let timestamp = commit.time().seconds();
@@ -207,6 +216,10 @@ impl<'a> GitCommit<'a> {
         } else {
             None
         }
+    }
+
+    pub fn get_author_by_name(&self, name: &str) -> u32 {
+        self.repo.query_author_id(name)
     }
 
     pub fn author_id(&self) -> u32 {
@@ -233,13 +246,16 @@ impl<'a> GitCommit<'a> {
 
         queue.push_back(std::borrow::Cow::Borrowed(commit));
 
-        let commit_time = Utc.ymd(1970,1,1) + Duration::seconds(commit.time().seconds());
+        let commit_time = Utc.ymd(1970, 1, 1) + Duration::seconds(commit.time().seconds());
 
-        while let Some(cc) = queue.pop_front(){
+        while let Some(cc) = queue.pop_front() {
             for parent in cc.parents() {
-                let parent_commit_time = Utc.ymd(1970,1,1) + Duration::seconds(parent.time().seconds());
-                
-                if commit_time == parent_commit_time &&  commit.author().name() == parent.author().name() {
+                let parent_commit_time =
+                    Utc.ymd(1970, 1, 1) + Duration::seconds(parent.time().seconds());
+
+                if commit_time == parent_commit_time
+                    && commit.author().name() == parent.author().name()
+                {
                     queue.push_back(Cow::Owned(parent));
                 } else {
                     ret.push(parent);
@@ -249,7 +265,7 @@ impl<'a> GitCommit<'a> {
 
         ret
     }
-    pub fn topological_sort<Pred: Fn(&Commit) -> bool + Clone>(
+    pub fn topological_sort<Pred: Fn(&GitCommit) -> bool + Clone>(
         self,
         predict: Pred,
     ) -> Result<HistoryGraph<'a>, Error> {
@@ -274,7 +290,10 @@ impl<'a> GitCommit<'a> {
             match flag.get(&id) {
                 None => {
                     flag.insert(id, INVALID_IDX);
-                    let should_recurse = predict(&root);
+                    let should_recurse = predict(&GitCommit {
+                        repo: self.repo,
+                        inner: Some(root.clone()),
+                    });
                     stack.push(root.clone());
                     if should_recurse {
                         for parent in Self::find_effctive_ancestors(&root) {
@@ -286,17 +305,23 @@ impl<'a> GitCommit<'a> {
                 }
                 Some(&ofs) if ofs == INVALID_IDX => {
                     *flag.get_mut(&id).unwrap() = ret.len();
-                    let mut adj_ids: Vec<_> = Self::find_effctive_ancestors(&root).into_iter().map(|p| p.id()).collect();
+                    let mut adj_ids: Vec<_> = Self::find_effctive_ancestors(&root)
+                        .into_iter()
+                        .map(|p| p.id())
+                        .collect();
                     adj_ids.sort();
                     let mut j = if adj_ids.is_empty() { 0 } else { 1 };
-                    
+
                     for i in 1..adj_ids.len() {
                         if adj_ids[j - 1] != adj_ids[i] {
                             j += 1;
                         }
                     }
 
-                    let adj_node: Vec<_> = adj_ids[..j].iter().map(|hash| flag[&hash]).collect();
+                    let adj_node: Vec<_> = adj_ids[..j]
+                        .iter()
+                        .filter_map(|hash| flag.get(&hash).map(|x| *x))
+                        .collect();
 
                     ret.push(root);
                     adj_table.push(adj_node);
@@ -313,6 +338,17 @@ impl<'a> GitCommit<'a> {
         };
         ret.compute_last_use_array();
         Ok(ret)
+    }
+
+    pub fn is_initial_commit(&self) -> bool {
+        if let Some(inner) = self.inner.as_ref() {
+            if inner.parent_count() == 0 {
+                return true;
+            }
+            Self::find_effctive_ancestors(inner).len() == 0
+        } else {
+            true
+        }
     }
 
     pub fn diff_with<'b, BaseIter: IntoIterator<Item = &'b GitCommit<'b>>>(

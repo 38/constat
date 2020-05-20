@@ -7,8 +7,13 @@ use std::path::Path;
 pub use repo::{GitCommit, GitRepo};
 pub use tree::Tree;
 
-pub fn run_stat<P: AsRef<Path>, S: FnMut(&GitRepo, &GitCommit, &Tree, usize, usize)>(
+pub fn run_stat<
+    P: AsRef<Path>,
+    F: Fn(&GitCommit) -> bool,
+    S: FnMut(&GitRepo, &GitCommit, &Tree, usize, usize),
+>(
     path: P,
+    commit_filter: F,
     mut stat: S,
 ) {
     let repo = GitRepo::open(path).unwrap();
@@ -24,7 +29,7 @@ pub fn run_stat<P: AsRef<Path>, S: FnMut(&GitRepo, &GitCommit, &Tree, usize, usi
         Tree::analyze_patch(&tsr, &diff, 0);
     }*/
 
-    let result = commit.topological_sort(|_| true).unwrap();
+    let result = commit.topological_sort(&commit_filter).unwrap();
 
     let plan = result.plan();
 
@@ -34,9 +39,7 @@ pub fn run_stat<P: AsRef<Path>, S: FnMut(&GitRepo, &GitCommit, &Tree, usize, usi
         let step = &plan[i];
 
         let commit = result.get_commit(step.processing).unwrap();
-        let parent_commits = result.get_parent_commits(step.processing);
 
-        let patch = commit.diff_with(parent_commits.iter()).unwrap();
         let parents: Vec<_> = result
             .get_parent_idx(step.processing)
             .unwrap()
@@ -45,9 +48,17 @@ pub fn run_stat<P: AsRef<Path>, S: FnMut(&GitRepo, &GitCommit, &Tree, usize, usi
             .collect();
 
         let tree = if parents.len() == 0 {
-            let empty = tree::Tree::empty();
-            tree::Tree::analyze_patch(&[&empty], patch.as_ref(), commit.author_id())
+            if commit.is_initial_commit() {
+                let empty = tree::Tree::empty();
+                let parent_commits = result.get_parent_commits(step.processing);
+                let patch = commit.diff_with(parent_commits.iter()).unwrap();
+                tree::Tree::analyze_patch(&[&empty], patch.as_ref(), commit.author_id())
+            } else {
+                tree::Tree::from_commit(&commit, repo.query_author_id("Older Code"))
+            }
         } else {
+            let parent_commits = result.get_parent_commits(step.processing);
+            let patch = commit.diff_with(parent_commits.iter()).unwrap();
             tree::Tree::analyze_patch(parents.as_ref(), patch.as_ref(), commit.author_id())
         };
 

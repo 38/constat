@@ -44,10 +44,10 @@ args:
         long: 'keep-author'
         short: 'K'
         help: Keep specific author
-#    - since-date:
-#        long: 'since-date'
-#        value_name: DATE
-#        help: Run stat on the changes after this date
-#    - exclude-older:
-#        long: 'exclude-older'
-#        help: Do not include the orlder code before the stats range in the result plot
+    - since-date:
+        long: 'since-date'
+        value_name: DATE
+        help: Run stat on the changes after this date
+    - exclude-older:
+        long: 'exclude-older'
+        help: Do not include the orlder code before the stats range in the result plot

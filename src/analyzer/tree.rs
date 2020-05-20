@@ -1,4 +1,5 @@
 use super::patch::{FilePatch, TreePatch};
+use super::GitCommit;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -114,6 +115,14 @@ impl<'a> Tree<'a> {
         Tree {
             root: HashMap::new(),
         }
+    }
+
+    pub fn from_commit<'b>(commit: &'b GitCommit<'b>, author: u32) -> Self {
+        let empty = Self::empty();
+        let es = [&empty];
+        let diff = commit.diff_with(vec![commit.scratch()].iter()).unwrap();
+
+        Self::analyze_patch(&es, diff.as_ref(), author)
     }
 
     fn copy_from_old_tree(
