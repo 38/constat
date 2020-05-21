@@ -364,16 +364,26 @@ impl<'a> GitCommit<'a> {
         if let Some(root) = self.inner.as_ref() {
             let base: Vec<_> = base.into_iter().collect();
             if base.len() > 1 {
-                let base:Vec<_> = base.into_iter().enumerate().map(|(id, x)| (id, self.repo.inner.path().to_owned(), x.id())).collect();
+                let new_aid = self.repo.query_author_id(root.author().name().unwrap_or("<Unknown>"));
+                
+                let base:Vec<_> = base.into_iter().enumerate().map(|(id, x)| {
+                    let old_aid =
+                        x.inner.as_ref().map(|c| self.repo.query_author_id(c.author().name().unwrap_or("<Unknown>")));
+                    (id, self.repo.inner.path().to_owned(), x.id(), old_aid, new_aid)
+                }).collect();
+                
                 let root_id = root.id();
-                let mut res_buf:Vec<_> = base.into_par_iter().map(|(id, path, oid)| {
+                let mut res_buf:Vec<_> = base.into_par_iter().map(|(id, path, oid, oa, na)| {
                     if verbose {
                         eprintln!("Comparing diff between {} and {} in parallel", oid.unwrap_or(Oid::zero()), root_id);
                     }
                     let repo = GitRepo::open(path).unwrap();
                     let commit = repo.inner.find_commit(oid.unwrap()).ok();
                     let root = repo.inner.find_commit(root_id).unwrap();
-                    (id, repo.get_patch(commit.as_ref(), &root).unwrap())
+                    let mut patch = repo.get_patch(commit.as_ref(), &root).unwrap();
+                    patch.old_author = oa;
+                    patch.new_author = na;
+                    (id, patch)
                 }).collect();
                 res_buf.sort_by_key(|(id, _)| *id);
                 for (_, patch) in res_buf.into_iter() {

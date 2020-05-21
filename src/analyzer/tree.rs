@@ -54,6 +54,7 @@ struct Addition {
 
 fn merge_file_patch<'a>(
     patches: impl Iterator<Item = (u32, Option<&'a FilePatch>)>,
+    trees: impl Iterator<Item = Option<&'a [LineBlock]>>,
     merger: u32,
 ) -> Vec<Addition> {
     let mut patches: Vec<_> = patches
@@ -67,15 +68,27 @@ fn merge_file_patch<'a>(
         })
         .collect();
 
+    let mut trees : Vec<_> = trees.collect();
+    let mut base  = vec![0;trees.len()];
+
     let mut ret = vec![];
+
+    let mut old_pos_diff = vec![0i32;patches.len()];
 
     let sum = (1 + patches.len()) * patches.len() / 2;
 
+    // TODO: At this point, we actually can't assign all the lines in this banch belongs to the
+    // last commit author, since what we should do at this point is to figure out the author
+    // assignment for the same line in that particular parent
+
     loop {
+        let mut idx = 0;
         for (_, p) in patches.iter_mut() {
             while !p.is_empty() && p[0].new_lineno().is_none() {
                 *p = &p[1..];
+                old_pos_diff[idx] += 1;
             }
+            idx += 1;
         }
         if let Some(next_line) = patches
             .iter()
@@ -90,12 +103,30 @@ fn merge_file_patch<'a>(
                 {
                     author_ofs -= ofs;
                     *p = &p[1..];
+                    old_pos_diff[ofs - 1] -= 1;
                 }
             }
+            for (id, tree) in trees.iter_mut().enumerate() {
+                if let Some(tree) = tree.as_mut() {
+                    if tree.is_empty() {
+                        continue;
+                    }
+                    if (base[id] as i32) + old_pos_diff[id] + (tree[0].size as i32) < (next_line as i32) {
+                        base[id] += tree[0].size;
+                        *tree = &tree[1..];
+                    }
+                }
+            }
+            
             if author_ofs > 0 && author_ofs <= patches.len() {
+                let current_author = if trees[author_ofs as usize - 1].map_or(true, |x| x.is_empty()) {
+                    patches[author_ofs as usize - 1].0
+                } else {
+                    trees[author_ofs as usize - 1].as_ref().unwrap()[0].author_id
+                };
                 ret.push(Addition {
                     line: next_line as u32,
-                    author: patches[author_ofs as usize - 1].0,
+                    author: current_author,
                 });
             } else {
                 ret.push(Addition {
@@ -235,7 +266,9 @@ impl<'a> Tree<'a> {
 
             let patch_iter = authors.iter().map(|x| *x).zip(file_patch.into_iter());
 
-            let merged_diff = merge_file_patch(patch_iter, merger);
+            let old_files = trees.iter().map(|t| old.map(|old| t.root.get(old).map(|cow| cow.as_ref().as_ref())).flatten());
+
+            let merged_diff = merge_file_patch(patch_iter, old_files, merger);
 
             if let Some(file) = new.map(|p| ret.root.get_mut(p)).flatten() {
                 let mut idx = 0;
