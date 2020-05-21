@@ -203,6 +203,13 @@ pub struct GitCommit<'a> {
 }
 
 impl<'a> GitCommit<'a> {
+    pub fn id(&self) -> Option<Oid> {
+        if let Some(inner) = self.inner.as_ref() {
+            Some(inner.id())
+        } else {
+            None
+        }
+    }
     pub fn scratch(&self) -> GitCommit {
         Self {
             repo: self.repo,
@@ -355,16 +362,23 @@ impl<'a> GitCommit<'a> {
     pub fn diff_with<'b, BaseIter: IntoIterator<Item = &'b GitCommit<'b>>>(
         &self,
         base: BaseIter,
+        verbose: bool,
     ) -> Result<Vec<TreePatch>, Error> {
         let mut ret = vec![];
         if let Some(root) = self.inner.as_ref() {
             let mut empty = true;
             for commit in base.into_iter() {
                 empty = false;
+                if verbose {
+                    eprintln!("Comparing diff between {} and {}", commit.id().unwrap_or(Oid::zero()), root.id())
+                }
                 let patch = self.repo.get_patch(commit.inner.as_ref(), &root)?;
                 ret.push(patch);
             }
             if empty {
+                if verbose {
+                    eprintln!("Comparing diff between {} and {}", Oid::zero(), root.id())
+                }
                 let patch = self.repo.get_patch(None, &root)?;
                 ret.push(patch);
             }

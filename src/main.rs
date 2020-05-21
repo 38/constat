@@ -16,10 +16,11 @@ fn main() {
 
     let mut pb = None;
 
-    let quiet = options.quiet;
+    let quiet = options.quiet || options.verbose;
 
     analyzer::run_stat(
         &options.repo_path,
+        options.verbose,
         |commit| {
             let time = commit.get_timestamp();
             time.map_or(true, |ts| {

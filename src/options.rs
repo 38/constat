@@ -3,7 +3,6 @@ use clap::{load_yaml, value_t_or_exit, values_t_or_exit, App, ArgMatches};
 use glob::Pattern;
 use std::path::{Path, PathBuf};
 use tempfile::{tempdir, TempDir};
-
 pub struct ConstatOptions {
     pub repo_path: PathBuf,
     pub top: usize,
@@ -15,6 +14,7 @@ pub struct ConstatOptions {
     pub since: Option<Date<Utc>>,
     pub exclude_older: bool,
     pub quiet: bool,
+    pub verbose: bool,
     pub pinned_author: Vec<Pattern>,
     _temp_file_handle: Option<TempDir>,
 }
@@ -34,6 +34,7 @@ impl ConstatOptions {
         );
 
         Self {
+            verbose: options.is_present("verbose"),
             repo_path,
             top: get_num_tops(&options),
             out_path,

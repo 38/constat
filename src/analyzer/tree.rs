@@ -120,7 +120,7 @@ impl<'a> Tree<'a> {
     pub fn from_commit<'b>(commit: &'b GitCommit<'b>, author: u32) -> Self {
         let empty = Self::empty();
         let es = [&empty];
-        let diff = commit.diff_with(vec![commit.scratch()].iter()).unwrap();
+        let diff = commit.diff_with(vec![commit.scratch()].iter(), false).unwrap();
 
         Self::analyze_patch(&es, diff.as_ref(), author)
     }

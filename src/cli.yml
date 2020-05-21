@@ -51,3 +51,6 @@ args:
     - exclude-older:
         long: 'exclude-older'
         help: Do not include the orlder code before the stats range in the result plot
+    - verbose:
+        long: 'verbose'
+        help: Show detailed computation steps

@@ -7,29 +7,30 @@ use std::path::Path;
 pub use repo::{GitCommit, GitRepo};
 pub use tree::Tree;
 
-pub fn run_stat<
+pub fn run_stat<P,F,S>(
+    path: P,
+    verbose: bool,
+    commit_filter: F,
+    mut stat: S,
+) 
+where 
     P: AsRef<Path>,
     F: Fn(&GitCommit) -> bool,
     S: FnMut(&GitRepo, &GitCommit, &Tree, usize, usize),
->(
-    path: P,
-    commit_filter: F,
-    mut stat: S,
-) {
+{
     let repo = GitRepo::open(path).unwrap();
 
     let commit = repo.find_commit(repo::VersionSpec::Head).unwrap();
 
-    /*{
-        let test_commit = repo.find_commit(repo::VersionSpec::Commit("9fdb62af92c741addbea15545f214a6e89460865")).unwrap();
-        let pc = test_commit.parents();
-        let ts:Vec<_> = pc.iter().map(|_| Tree::empty()).collect();
-        let tsr:Vec<_> = ts.iter().collect();
-        let diff = test_commit.diff_with(pc.iter()).unwrap();
-        Tree::analyze_patch(&tsr, &diff, 0);
-    }*/
+    if verbose { 
+        eprintln!("Sorting commits (head = {})", commit.id().unwrap_or(git2::Oid::zero()));
+    }
 
     let result = commit.topological_sort(&commit_filter).unwrap();
+    
+    if verbose { 
+        eprintln!("Found {} commits to process", result.len());
+    }
 
     let plan = result.plan();
 
@@ -51,14 +52,23 @@ pub fn run_stat<
             if commit.is_initial_commit() {
                 let empty = tree::Tree::empty();
                 let parent_commits = result.get_parent_commits(step.processing);
-                let patch = commit.diff_with(parent_commits.iter()).unwrap();
+                let patch = commit.diff_with(parent_commits.iter(), verbose).unwrap();
+                if verbose {
+                    eprintln!("Analyzing commit {}", commit.id().unwrap_or(git2::Oid::zero()));
+                }
                 tree::Tree::analyze_patch(&[&empty], patch.as_ref(), commit.author_id())
             } else {
+                if verbose {
+                    eprintln!("Analyzing commit {}", commit.id().unwrap_or(git2::Oid::zero()));
+                }
                 tree::Tree::from_commit(&commit, repo.query_author_id("Older Code"))
             }
         } else {
             let parent_commits = result.get_parent_commits(step.processing);
-            let patch = commit.diff_with(parent_commits.iter()).unwrap();
+            let patch = commit.diff_with(parent_commits.iter(),verbose).unwrap();
+            if verbose {
+                eprintln!("Analyzing commit {}", result.get_commit(step.processing).unwrap().id().unwrap_or(git2::Oid::zero()));
+            }
             tree::Tree::analyze_patch(parents.as_ref(), patch.as_ref(), commit.author_id())
         };
 
