@@ -9,6 +9,8 @@ use super::patch::TreePatch;
 
 use chrono::{DateTime, Duration, TimeZone, Utc};
 
+use rayon::prelude::*;
+
 #[derive(Default)]
 struct AuthorCollection {
     name_id_map: HashMap<String, u32>,
@@ -210,12 +212,6 @@ impl<'a> GitCommit<'a> {
             None
         }
     }
-    pub fn scratch(&self) -> GitCommit {
-        Self {
-            repo: self.repo,
-            inner: None,
-        }
-    }
     pub fn get_timestamp(&self) -> Option<DateTime<Utc>> {
         if let Some(commit) = &self.inner {
             let timestamp = commit.time().seconds();
@@ -366,16 +362,33 @@ impl<'a> GitCommit<'a> {
     ) -> Result<Vec<TreePatch>, Error> {
         let mut ret = vec![];
         if let Some(root) = self.inner.as_ref() {
-            let mut empty = true;
-            for commit in base.into_iter() {
-                empty = false;
-                if verbose {
-                    eprintln!("Comparing diff between {} and {}", commit.id().unwrap_or(Oid::zero()), root.id())
+            let base: Vec<_> = base.into_iter().collect();
+            if base.len() > 1 {
+                let base:Vec<_> = base.into_iter().enumerate().map(|(id, x)| (id, self.repo.inner.path().to_owned(), x.id())).collect();
+                let root_id = root.id();
+                let mut res_buf:Vec<_> = base.into_par_iter().map(|(id, path, oid)| {
+                    if verbose {
+                        eprintln!("Comparing diff between {} and {} in parallel", oid.unwrap_or(Oid::zero()), root_id);
+                    }
+                    let repo = GitRepo::open(path).unwrap();
+                    let commit = repo.inner.find_commit(oid.unwrap()).ok();
+                    let root = repo.inner.find_commit(root_id).unwrap();
+                    (id, repo.get_patch(commit.as_ref(), &root).unwrap())
+                }).collect();
+                res_buf.sort_by_key(|(id, _)| *id);
+                for (_, patch) in res_buf.into_iter() {
+                    ret.push(patch);
                 }
-                let patch = self.repo.get_patch(commit.inner.as_ref(), &root)?;
-                ret.push(patch);
+            } else if base.len() > 0 {
+                for commit in base.into_iter() {
+                    if verbose {
+                        eprintln!("Comparing diff between {} and {}", commit.id().unwrap_or(Oid::zero()), root.id())
+                    }
+                    let patch = self.repo.get_patch(commit.inner.as_ref(), &root)?;
+                    ret.push(patch);
+                }
             }
-            if empty {
+            else {
                 if verbose {
                     eprintln!("Comparing diff between {} and {}", Oid::zero(), root.id())
                 }
