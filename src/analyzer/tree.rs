@@ -117,12 +117,24 @@ impl<'a> Tree<'a> {
         }
     }
 
-    pub fn from_commit<'b>(commit: &'b GitCommit<'b>, author: u32) -> Self {
-        let empty = Self::empty();
-        let es = [&empty];
-        let diff = commit.diff_with(vec![commit.scratch()].iter(), false).unwrap();
+    pub fn from_commit<'b>(commit: &'b GitCommit<'b>, author: u32, verbose: bool) -> Self {
+        let mut root = HashMap::new();
+        if verbose {
+            println!("Enumerate tree {}", commit.id().unwrap_or(git2::Oid::zero()));
+        }
+        commit.tree_walk(|path, line| {
+            root.insert(path.to_owned(), Cow::Owned(vec![LineBlock{
+                author_id: author,
+                size: line as u32,
+            }]));
+        });
 
-        Self::analyze_patch(&es, diff.as_ref(), author)
+        Tree{root}
+        /*let empty = Self::empty();
+        let es = [&empty];
+        let diff = commit.diff_with(vec![commit.scratch()].iter(), verbose).unwrap();
+
+        Self::analyze_patch(&es, diff.as_ref(), author)*/
     }
 
     fn copy_from_old_tree(
@@ -134,7 +146,11 @@ impl<'a> Tree<'a> {
         match (old, new) {
             (Some(old), Some(new)) if old != new => {
                 self.root.remove(old);
-                self.root.insert(new.to_owned(), other.root[old].clone());
+                if let Some(old_file) = other.root.get(old) {
+                    self.root.insert(new.to_owned(), old_file.clone());
+                } else {
+                    self.root.insert(new.to_owned(), Cow::Owned(vec![]));
+                }
             }
             (Some(_old), Some(_new)) => {}
             (_, Some(new)) => {

@@ -389,4 +389,32 @@ impl<'a> GitCommit<'a> {
         });
         Ok(ret)
     }
+
+    pub fn tree_walk<F: FnMut(&Path, usize)>(&self, mut func: F) {
+        if let Some(inner) = self.inner.as_ref() {
+            let tree = inner.tree().unwrap();
+            let mut last_level = 0;
+            tree.walk(git2::TreeWalkMode::PostOrder, move |root, entry| {
+                let full_path = format!("{}{}", root, entry.name().unwrap_or(""));
+                let path: &Path = full_path.as_ref();
+                let levels = path.components().filter(|x| match x{
+                    std::path::Component::Normal(_) => true,
+                    _ => false,
+                }).count();
+
+                if levels == last_level {
+                    if let Ok(blob)  = entry.to_object(&self.repo.inner)
+                    .and_then(|obj| obj.peel_to_blob()) {
+                        if !blob.is_binary() {
+                            let content = blob.content();
+                            let lines = content.into_iter().filter(|&&x| x == b'\n').count() + content.last().map_or(0, |&c| if c != b'\n' { 1 } else {0});
+                            func(path, lines);
+                        }
+                    }
+                }
+                last_level = levels;
+                git2::TreeWalkResult::Ok
+            }).unwrap();
+        }
+    }
 }

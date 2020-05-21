@@ -35,6 +35,7 @@ where
     let plan = result.plan();
 
     let mut trees = std::collections::BTreeMap::new();
+    let mut base_line_tree = None;
 
     for i in 0..plan.len() {
         let step = &plan[i];
@@ -54,20 +55,28 @@ where
                 let parent_commits = result.get_parent_commits(step.processing);
                 let patch = commit.diff_with(parent_commits.iter(), verbose).unwrap();
                 if verbose {
-                    eprintln!("Analyzing commit {}", commit.id().unwrap_or(git2::Oid::zero()));
+                    eprintln!("Analyzing initial commit {}", commit.id().unwrap_or(git2::Oid::zero()));
                 }
                 tree::Tree::analyze_patch(&[&empty], patch.as_ref(), commit.author_id())
             } else {
                 if verbose {
-                    eprintln!("Analyzing commit {}", commit.id().unwrap_or(git2::Oid::zero()));
+                    eprintln!("Analyzing boundary commit {}", commit.id().unwrap_or(git2::Oid::zero()));
                 }
-                tree::Tree::from_commit(&commit, repo.query_author_id("Older Code"))
+                if base_line_tree.is_none() {
+                    let tree = tree::Tree::from_commit(&commit, repo.query_author_id("Older Code"), verbose);
+                    base_line_tree = Some((commit.clone(), tree.clone()));
+                    tree
+                } else {
+                    let (bc, bt)  = base_line_tree.as_ref().unwrap();
+                    let patch = commit.diff_with([bc.clone()].iter(), verbose).unwrap();
+                    tree::Tree::analyze_patch(&[bt], patch.as_ref(), repo.query_author_id("Older Code"))
+                }
             }
         } else {
             let parent_commits = result.get_parent_commits(step.processing);
             let patch = commit.diff_with(parent_commits.iter(),verbose).unwrap();
             if verbose {
-                eprintln!("Analyzing commit {}", result.get_commit(step.processing).unwrap().id().unwrap_or(git2::Oid::zero()));
+                eprintln!("Analyzing commit {} (merge from {} parents)", result.get_commit(step.processing).unwrap().id().unwrap_or(git2::Oid::zero()), parent_commits.len());
             }
             tree::Tree::analyze_patch(parents.as_ref(), patch.as_ref(), commit.author_id())
         };
