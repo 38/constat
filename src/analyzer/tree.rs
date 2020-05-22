@@ -161,11 +161,6 @@ impl<'a> Tree<'a> {
         });
 
         Tree{root}
-        /*let empty = Self::empty();
-        let es = [&empty];
-        let diff = commit.diff_with(vec![commit.scratch()].iter(), verbose).unwrap();
-
-        Self::analyze_patch(&es, diff.as_ref(), author)*/
     }
 
     fn copy_from_old_tree(
@@ -201,6 +196,54 @@ impl<'a> Tree<'a> {
         } else {
             None
         }
+    }
+
+    fn compress_abstract_file(file: &mut Vec<LineBlock>) {
+        let mut j = 1;
+        for i in 1..file.len() {
+            if file[j - 1].author_id == file[i].author_id {
+                file[j - 1].size += file[i].size;
+            } else {
+                file[j] = file[i].clone();
+                j += 1;
+            }
+        }
+        file.truncate(j);
+    }
+
+    fn apply_author_diff_to_file(file: &[LineBlock], diff: &[Addition]) -> Vec<LineBlock> {
+        let mut idx = 0;
+        let mut base = 0;
+        let mut buffer = vec![];
+        for block in file.iter() {
+            let mut last_begin = base;
+            let last_end = base + block.size;
+            while idx < diff.len() && diff[idx].line < last_end {
+                if last_begin < diff[idx].line {
+                    buffer.push(LineBlock {
+                        author_id: block.author_id,
+                        size: diff[idx].line - last_begin,
+                    });
+                }
+                buffer.push(LineBlock {
+                    author_id: diff[idx].author,
+                    size: 1,
+                });
+                last_begin = diff[idx].line + 1;
+                idx += 1;
+            }
+            if last_begin < last_end {
+                buffer.push(LineBlock {
+                    author_id: block.author_id,
+                    size: last_end - last_begin,
+                });
+            }
+            base += block.size;
+        }
+
+        Self::compress_abstract_file(&mut buffer);
+
+        buffer
     }
 
     pub fn analyze_patch(trees: &[&Self], patch: &[TreePatch], merger: u32) -> Tree<'a> {
@@ -271,52 +314,7 @@ impl<'a> Tree<'a> {
             let merged_diff = merge_file_patch(patch_iter, old_files, merger);
 
             if let Some(file) = new.map(|p| ret.root.get_mut(p)).flatten() {
-                let mut idx = 0;
-                let mut base = 0;
-                let mut buffer = vec![];
-                for block in file.iter() {
-                    let mut last_begin = base;
-                    let last_end = base + block.size;
-                    while idx < merged_diff.len() && merged_diff[idx].line < last_end {
-                        if last_begin < merged_diff[idx].line {
-                            buffer.push(LineBlock {
-                                author_id: block.author_id,
-                                size: merged_diff[idx].line - last_begin,
-                            });
-                        }
-                        buffer.push(LineBlock {
-                            author_id: merged_diff[idx].author,
-                            size: 1,
-                        });
-                        last_begin = merged_diff[idx].line + 1;
-                        idx += 1;
-                    }
-                    if last_begin < last_end {
-                        buffer.push(LineBlock {
-                            author_id: block.author_id,
-                            size: last_end - last_begin,
-                        });
-                    }
-                    base += block.size;
-                }
-
-                let mut j = 1;
-                for i in 1..buffer.len() {
-                    if buffer[j - 1].author_id == buffer[i].author_id {
-                        buffer[j - 1].size += buffer[i].size;
-                    } else {
-                        buffer[j] = buffer[i].clone();
-                        j += 1;
-                    }
-                }
-                buffer.resize(
-                    j,
-                    LineBlock {
-                        author_id: 0,
-                        size: 0,
-                    },
-                );
-                *file = Cow::Owned(buffer);
+                *file = Cow::Owned(Self::apply_author_diff_to_file(file, merged_diff.as_ref()));
             }
         }
 
