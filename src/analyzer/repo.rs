@@ -425,7 +425,7 @@ impl<'a> GitCommit<'a> {
                     _ => false,
                 }).count();
 
-                if levels == last_level {
+                if levels >= last_level {
                     if let Ok(blob)  = entry.to_object(&self.repo.inner)
                     .and_then(|obj| obj.peel_to_blob()) {
                         if !blob.is_binary() {

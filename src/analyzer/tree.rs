@@ -75,12 +75,6 @@ fn merge_file_patch<'a>(
 
     let mut old_pos_diff = vec![0i32;patches.len()];
 
-    let sum = (1 + patches.len()) * patches.len() / 2;
-
-    // TODO: At this point, we actually can't assign all the lines in this banch belongs to the
-    // last commit author, since what we should do at this point is to figure out the author
-    // assignment for the same line in that particular parent
-
     loop {
         let mut idx = 0;
         for (_, p) in patches.iter_mut() {
@@ -95,15 +89,17 @@ fn merge_file_patch<'a>(
             .filter_map(|(_, lps)| lps.get(0).map(|p| p.new_lineno().unwrap()))
             .min()
         {
-            let mut author_ofs = sum;
+            let mut author_ofs = 0;
             for ((_, p), ofs) in patches.iter_mut().zip(1..) {
                 if p.get(0)
                     .map(|lp| lp.new_lineno().unwrap())
                     .map_or(false, |lno| lno == next_line)
                 {
-                    author_ofs -= ofs;
+                    //author_ofs -= ofs;
                     *p = &p[1..];
                     old_pos_diff[ofs - 1] -= 1;
+                } else {
+                    author_ofs = ofs;
                 }
             }
             for (id, tree) in trees.iter_mut().enumerate() {
@@ -111,7 +107,7 @@ fn merge_file_patch<'a>(
                     if tree.is_empty() {
                         continue;
                     }
-                    if (base[id] as i32) + old_pos_diff[id] + (tree[0].size as i32) < (next_line as i32) {
+                    if (base[id] as i32) + old_pos_diff[id] + (tree[0].size as i32) <= (next_line as i32) {
                         base[id] += tree[0].size;
                         *tree = &tree[1..];
                     }
@@ -335,5 +331,19 @@ impl<'a> Tree<'a> {
             }
         }
         ret
+    }
+    #[allow(dead_code)] 
+    pub fn file_stat<P:AsRef<Path>>(&self, p: P) -> Option<Vec<u32>> {
+        if let Some(file) = self.root.get(p.as_ref()) {
+            let mut ret = vec![];
+            for block in file.as_ref() {
+                if ret.len() < block.author_id as usize + 1 {
+                    ret.resize(block.author_id as usize + 1, 0);
+                }
+                ret[block.author_id as usize] += block.size;
+            }
+            return Some(ret);
+        }
+        None
     }
 }
